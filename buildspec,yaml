@@ -1,0 +1,51 @@
+
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - python -m pip install --upgrade pip
+      - python -m pip install pytest build twine
+
+  pre_build:
+    commands:
+      - echo "Starting Python package CI/CD workflow"
+
+  build:
+    commands:
+      - echo "Running unit tests"
+      - python -m pytest -q
+      - echo "Building Python package"
+      - python -m build
+
+  post_build:
+    commands:
+      - |
+        if [ "$CODEBUILD_BUILD_SUCCEEDING" != "1" ]; then
+          echo "Build or tests failed. Skipping package publishing."
+          exit 1
+        fi
+
+        echo "Authenticating with AWS CodeArtifact"
+
+        export TWINE_USERNAME=aws
+        export TWINE_PASSWORD="$(aws codeartifact get-authorization-token \
+          --domain enminto-domain \
+          --domain-owner 580069881307 \
+          --region ap-south-1 \
+          --query authorizationToken \
+          --output text)"
+
+        REPOSITORY_URL="$(aws codeartifact get-repository-endpoint \
+          --domain enminto-domain \
+          --domain-owner 580069881307 \
+          --repository python-packages \
+          --format pypi \
+          --region ap-south-1 \
+          --query repositoryEndpoint \
+          --output text)"
+
+        echo "Publishing Python package to CodeArtifact"
+        python -m twine upload --repository-url "$REPOSITORY_URL" dist/*
