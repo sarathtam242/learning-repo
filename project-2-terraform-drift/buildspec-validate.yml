@@ -18,18 +18,23 @@ phases:
 
   pre_build:
     commands:
-      - echo "Checking Terraform project directory..."
-      - pwd
-      - ls -la
-      - ls -la project-2-terraform-drift
-      - cd project-2-terraform-drift/terraform && terraform fmt -check -recursive
-      - cd project-2-terraform-drift/terraform && terraform init -input=false -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="key=project-2/terraform.tfstate" -backend-config="region=ap-south-1" -backend-config="encrypt=true" -backend-config="dynamodb_table=${TF_LOCK_TABLE}"
+      - echo "Validating Terraform formatting..."
+      - terraform -chdir=project-2-terraform-drift/terraform fmt -check -recursive
+      - echo "Initializing Terraform backend..."
+      - terraform -chdir=project-2-terraform-drift/terraform init -input=false -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="key=project-2/terraform.tfstate" -backend-config="region=ap-south-1" -backend-config="encrypt=true" -backend-config="dynamodb_table=${TF_LOCK_TABLE}"
 
   build:
     commands:
-      - cd project-2-terraform-drift/terraform && terraform validate
-      - cd project-2-terraform-drift/terraform && terraform plan -input=false -no-color -lock-timeout=5m
+      - echo "Validating Terraform configuration..."
+      - terraform -chdir=project-2-terraform-drift/terraform validate
+      - echo "Generating Terraform execution plan..."
+      - terraform -chdir=project-2-terraform-drift/terraform plan -input=false -no-color -lock-timeout=5m
 
   post_build:
     commands:
-      - echo "Terraform validation pipeline completed."
+      - |
+        if [ "$CODEBUILD_BUILD_SUCCEEDING" = "1" ]; then
+          echo "Terraform validation pipeline completed successfully."
+        else
+          echo "Terraform validation pipeline failed. Check the build logs."
+        fi
