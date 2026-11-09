@@ -1,9 +1,9 @@
+
 version: 0.2
 
 env:
   variables:
     TF_VERSION: "1.6.6"
-    AWS_DEFAULT_REGION: "ap-south-1"
     TF_STATE_BUCKET: "enminto-p2-tfstate-580069881307"
     TF_LOCK_TABLE: "enminto-p2-terraform-lock"
 
@@ -18,16 +18,17 @@ phases:
 
   pre_build:
     commands:
-      - echo "Moving to Terraform project directory..."
-      - cd project-2-terraform-drift/terraform
-      - terraform fmt -check -recursive
-      - terraform init -input=false -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="key=project-2/terraform.tfstate" -backend-config="region=${AWS_DEFAULT_REGION}" -backend-config="encrypt=true" -backend-config="dynamodb_table=${TF_LOCK_TABLE}"
+      - echo "Checking Terraform project directory..."
+      - pwd
+      - ls -la
+      - ls -la project-2-terraform-drift
+      - cd project-2-terraform-drift/terraform && terraform fmt -check -recursive
+      - cd project-2-terraform-drift/terraform && terraform init -input=false -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="key=project-2/terraform.tfstate" -backend-config="region=ap-south-1" -backend-config="encrypt=true" -backend-config="dynamodb_table=${TF_LOCK_TABLE}"
 
   build:
     commands:
-      - cd project-2-terraform-drift/terraform
-      - terraform validate
-      - terraform plan -input=false -no-color -lock-timeout=5m
+      - cd project-2-terraform-drift/terraform && terraform validate
+      - cd project-2-terraform-drift/terraform && terraform plan -input=false -no-color -lock-timeout=5m
 
   post_build:
     commands:
