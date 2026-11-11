@@ -31,9 +31,16 @@ phases:
       - echo "Converting Terraform plan to JSON..."
       - terraform -chdir=project-2-terraform-drift/terraform show -json /tmp/tfplan > /tmp/tfplan.json
 
+      - echo "Inspecting detailed infrastructure drift..."
+      - |
+        python3 -c "import json; p=json.load(open('/tmp/tfplan.json')); [print(json.dumps({'address':r['address'],'change':r['change']},indent=2)) for r in p.get('resource_drift',[])]"
+
       - echo "Analyzing infrastructure drift..."
       - |
-        DRIFT_OUTPUT=$(python3 project-2-terraform-drift/scripts/detect-drift.py /tmp/tfplan.json)
+        if ! DRIFT_OUTPUT=$(python3 project-2-terraform-drift/scripts/detect-drift.py /tmp/tfplan.json); then
+          echo "ERROR: Drift analysis failed."
+          exit 1
+        fi
 
         echo "$DRIFT_OUTPUT"
 
