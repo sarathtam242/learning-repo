@@ -1,0 +1,55 @@
+
+version: 0.2
+
+env:
+  variables:
+    TF_VERSION: "1.6.6"
+    TF_STATE_BUCKET: "enminto-p2-tfstate-580069881307"
+    TF_LOCK_TABLE: "enminto-p2-terraform-lock"
+    SNS_TOPIC_ARN: "arn:aws:sns:ap-south-1:580069881307:enminto-terraform-drift-alerts"
+
+phases:
+  install:
+    commands:
+      - echo "Installing Terraform..."
+      - curl -fsSLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip
+      - unzip -o /tmp/terraform.zip -d /tmp
+      - install /tmp/terraform /usr/local/bin/terraform
+      - terraform version
+      - python3 --version
+
+  pre_build:
+    commands:
+      - echo "Initializing Terraform backend..."
+      - terraform -chdir=project-2-terraform-drift/terraform init -input=false -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="key=project-2/terraform.tfstate" -backend-config="region=ap-south-1" -backend-config="encrypt=true" -backend-config="dynamodb_table=${TF_LOCK_TABLE}"
+
+  build:
+    commands:
+      - echo "Generating Terraform plan..."
+      - terraform -chdir=project-2-terraform-drift/terraform plan -input=false -no-color -lock-timeout=5m -out=/tmp/tfplan
+
+      - echo "Converting Terraform plan to JSON..."
+      - terraform show -json /tmp/tfplan > /tmp/tfplan.json
+
+      - echo "Analyzing infrastructure drift..."
+      - |
+        DRIFT_OUTPUT=$(python3 project-2-terraform-drift/scripts/detect-drift.py /tmp/tfplan.json)
+
+        echo "$DRIFT_OUTPUT"
+
+        if printf '%s\n' "$DRIFT_OUTPUT" | grep -q '^DRIFT_DETECTED=true$'; then
+          echo "Drift detected. Sending SNS notification..."
+
+          aws sns publish \
+            --topic-arn "$SNS_TOPIC_ARN" \
+            --subject "Terraform Infrastructure Drift Detected" \
+            --message "$DRIFT_OUTPUT"
+
+          echo "SNS notification published successfully."
+        else
+          echo "No infrastructure drift. Skipping SNS notification."
+        fi
+
+  post_build:
+    commands:
+      - echo "Drift detection execution completed."
