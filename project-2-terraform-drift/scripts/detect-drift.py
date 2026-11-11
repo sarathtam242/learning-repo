@@ -1,62 +1,44 @@
 import json
 import sys
-from pathlib import Path
 
 
-def detect_drift(plan_file: str) -> bool:
-    path = Path(plan_file)
+def detect_drift(plan_file):
+    try:
+        with open(plan_file, "r", encoding="utf-8") as file:
+            plan = json.load(file)
 
-    if not path.exists():
-        raise FileNotFoundError(
-            f"Terraform plan JSON not found: {path}"
-        )
+        if not isinstance(plan, dict):
+            raise ValueError("Invalid Terraform plan structure.")
 
-    with path.open("r", encoding="utf-8") as file:
-        plan = json.load(file)
+        # Terraform may omit resource_drift when no drift exists.
+        resource_drift = plan.get("resource_drift", [])
 
-    if not isinstance(plan, dict) or "resource_drift" not in plan:
-        raise ValueError(
-            "Invalid Terraform plan JSON: resource_drift field missing"
-        )
+        if not isinstance(resource_drift, list):
+            raise ValueError("Invalid resource_drift structure.")
 
-    drift_items = plan["resource_drift"]
+        if not resource_drift:
+            print("DRIFT_DETECTED=false")
+            print("No infrastructure drift detected.")
+            return
 
-    if not isinstance(drift_items, list):
-        raise ValueError(
-            "Invalid Terraform plan JSON: resource_drift must be a list"
-        )
+        print("DRIFT_DETECTED=true")
+        print(f"Total drifted resources: {len(resource_drift)}")
 
-    print("\n========== TERRAFORM DRIFT REPORT ==========")
+        for resource in resource_drift:
+            address = resource.get("address", "Unknown resource")
+            actions = resource.get("change", {}).get("actions", [])
 
-    if not drift_items:
-        print("DRIFT_DETECTED=false")
-        print("No infrastructure drift detected.")
-        return False
+            print(f"Resource: {address}")
+            print(f"Actions: {', '.join(actions)}")
 
-    print("DRIFT_DETECTED=true")
-    print(f"Total resources with drift: {len(drift_items)}")
-
-    for item in drift_items:
-        address = item.get("address", "Unknown resource")
-        change = item.get("change", {})
-        actions = change.get("actions", [])
-
-        print(f"\nResource: {address}")
-        print(
-            f"Actions: {', '.join(actions) if actions else 'Unknown'}"
-        )
-
-    print("\nInfrastructure drift detected!")
-    return True
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as error:
+        print(f"Drift analysis error: {error}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python detect-drift.py <terraform-plan.json>")
+        print("Usage: python detect-drift.py <plan.json>", file=sys.stderr)
         sys.exit(1)
 
-    try:
-        detect_drift(sys.argv[1])
-    except (OSError, json.JSONDecodeError, ValueError) as error:
-        print(f"ERROR: {error}")
-        sys.exit(1)
+    detect_drift(sys.argv[1])
