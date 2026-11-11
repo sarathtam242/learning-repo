@@ -29,7 +29,7 @@ phases:
       - terraform -chdir=project-2-terraform-drift/terraform plan -input=false -no-color -lock-timeout=5m -out=/tmp/tfplan
 
       - echo "Converting Terraform plan to JSON..."
-      - terraform show -json /tmp/tfplan > /tmp/tfplan.json
+      - terraform -chdir=project-2-terraform-drift/terraform show -json /tmp/tfplan > /tmp/tfplan.json
 
       - echo "Analyzing infrastructure drift..."
       - |
