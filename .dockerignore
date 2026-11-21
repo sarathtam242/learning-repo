@@ -1,0 +1,35 @@
+
+# Python virtual environment
+.venv/
+venv/
+
+# Git repository
+.git/
+.gitignore
+
+# Environment and secrets
+.env
+.env.*
+
+# Allow the example configuration file
+!.env.example
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE files
+.vscode/
+.idea/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
