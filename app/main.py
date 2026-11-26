@@ -10,12 +10,10 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 
-# Initialize the FastAPI application.
 app = FastAPI(
     title="GitHub Gist API",
     description="API to retrieve public GitHub Gists",
     version="1.0.0"
 )
 
-# Register API routes.
 app.include_router(router)

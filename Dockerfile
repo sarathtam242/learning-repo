@@ -1,20 +1,50 @@
-# Use an official Python base image
-FROM python:3.13-slim
+# Stage 1: Build dependencies
+FROM python:3.13-slim AS builder
 
-# Set the working directory inside the container
-WORKDIR /app
+WORKDIR /build
 
-# Copy dependency list first for better Docker layer caching
+# Create an isolated virtual environment
+RUN python -m venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install application dependencies
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source code
-COPY app/ ./app/
 
-# Application listens on port 8080
+# Stage 2: Runtime image
+FROM python:3.13-slim AS runtime
+
+WORKDIR /app
+
+# Copy only the installed dependencies from the builder stage
+COPY --from=builder /opt/venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
+
+# Create a non-root user and log directory
+RUN groupadd --system appgroup \
+    && useradd --system --gid appgroup --uid 10001 appuser \
+    && mkdir -p /app/logs \
+    && chown -R appuser:appgroup /app
+
+# Copy application source
+COPY --chown=appuser:appgroup app/ ./app/
+
+# Persistent log directory
+VOLUME ["/app/logs"]
+
+# Application port
 EXPOSE 8080
 
-# Start the FastAPI application using Uvicorn
+# Run as non-root user
+USER appuser
+
+# Container health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)" || exit 1
+
+# Start FastAPI application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

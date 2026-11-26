@@ -1,30 +1,22 @@
-
 import logging
 import httpx
 from fastapi import APIRouter, HTTPException
 from app.github_client import fetch_user_gists
 
-
-# Create a logger for this module.
 logger = logging.getLogger(__name__)
-
-# Create a router to register API endpoints.
 router = APIRouter()
+
 
 # Application health-check endpoint.
 @router.get("/health")
 async def health_check():
+    return {"status": "healthy"}
 
-    return {
-        "status": "healthy"
-    }
 
-# Root endpoint.
+# Root endpoint providing basic API information.
 @router.get("/")
 async def root():
-
     logger.info("Root endpoint accessed")
-
     return {
         "message": "Welcome to GitHub Gist API",
         "usage": "Use /{username} to retrieve public GitHub Gists",
@@ -32,10 +24,9 @@ async def root():
     }
 
 
-# Retrieve public Gists for a GitHub username.
+# Retrieve public Gists and handle GitHub API errors.
 @router.get("/{username}")
 async def get_user_gists(username: str):
-
     try:
         return await fetch_user_gists(username)
 
@@ -46,13 +37,11 @@ async def get_user_gists(username: str):
         )
 
     except httpx.HTTPStatusError as exc:
-
         if exc.response.status_code == 404:
             raise HTTPException(
                 status_code=404,
                 detail="GitHub user not found"
             )
-
         raise HTTPException(
             status_code=502,
             detail="GitHub API returned an error"
@@ -63,4 +52,3 @@ async def get_user_gists(username: str):
             status_code=502,
             detail="Unable to communicate with GitHub API"
         )
-
